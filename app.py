@@ -2,56 +2,74 @@ import streamlit as st
 import json
 from math import radians, cos, sin, asin, sqrt
 
-st.set_page_config(page_title="E-REDES Rota Eficiente", page_icon="⚡")
+st.set_page_config(page_title="E-REDES Planeador", page_icon="⚡")
 
-# Função para calcular distância real entre ti e o PT
 def calcular_distancia(lat1, lon1, lat2, lon2):
-    R = 6371 # Raio da Terra em km
+    R = 6371
     dLat, dLon = radians(lat2-lat1), radians(lon2-lon1)
     a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLon/2)**2
     return R * 2 * asin(sqrt(a))
 
-st.title("⚡ Rota Otimizada de Inspeção")
+st.title("⚡ Planeador de Rota de Inspeção")
+st.markdown("Insira os códigos dos PTs para criar o roteiro mais eficiente.")
 
-# 1. Carregar os dados
 try:
     with open('postos-transformacao-distribuicao.geojson', 'r', encoding='utf-8') as f:
         dados = json.load(f)
 
-    # 2. Onde estás agora? (Podes copiar do Google Maps e colar aqui)
-    st.sidebar.header("📍 Minha Localização Atual")
-    minha_lat = st.sidebar.number_input("Tua Latitude", value=39.8475, format="%.6f")
-    minha_lon = st.sidebar.number_input("Tua Longitude", value=-8.1000, format="%.6f")
+    # Localização de partida
+    st.sidebar.header("📍 Ponto de Partida")
+    m_lat = st.sidebar.number_input("Tua Latitude", value=39.8475, format="%.6f")
+    m_lon = st.sidebar.number_input("Tua Longitude", value=-8.1000, format="%.6f")
 
-    # 3. Pesquisa os PTs (podes escrever vários códigos separados por vírgula ou apenas a zona)
-    busca = st.text_input("Escreve o nome da zona (ex: Sertã) para ver os PTs mais próximos:")
+    # CAIXA DE PESQUISA MÚLTIPLA
+    entrada = st.text_area("Cole aqui os códigos dos PTs (separados por vírgula, espaço ou linha):", 
+                           placeholder="Exemplo: 1824D2010700, 1824D2011100, 1824D2014600")
 
-    if busca:
-        lista_provisoria = []
-        for item in dados['features']:
-            p = item['properties']
-            g = item['geometry']
+    if entrada:
+        # Limpar a entrada para criar uma lista de códigos
+        lista_procurar = entrada.replace(',', ' ').split()
+        lista_procurar = [c.strip().upper() for c in lista_procurar]
+
+        pts_encontrados = []
+        for feature in dados['features']:
+            p = feature['properties']
+            g = feature['geometry']
+            cod_pt = str(p.get('cod_instalacao', '')).upper()
             
-            if busca.upper() in str(p.get('con_name', '')).upper() or busca.upper() in str(p.get('cod_instalacao', '')).upper():
+            if cod_pt in lista_procurar:
                 lon, lat = g['coordinates']
-                dist = calcular_distancia(minha_lat, minha_lon, lat, lon)
-                lista_provisoria.append({
-                    'id': p.get('cod_instalacao'),
+                dist = calcular_distancia(m_lat, m_lon, lat, lon)
+                pts_encontrados.append({
+                    'id': cod_pt,
                     'dist': dist,
-                    'lat': lat, 'lon': lon
+                    'lat': lat, 'lon': lon,
+                    'concelho': p.get('con_name')
                 })
-        
-        # ORDENAÇÃO MÁGICA: Do mais perto para o mais longe
-        rota_ordenada = sorted(lista_provisoria, key=lambda x: x['dist'])
 
-        st.subheader("📋 Ordem Sugerida de Visita:")
-        st.info("O primeiro da lista é o que está mais perto de ti agora.")
+        if pts_encontrados:
+            # ORDENAR: A mágica acontece aqui - organiza do mais próximo para o mais distante
+            rota_eficiente = sorted(pts_encontrados, key=lambda x: x['dist'])
 
-        for i, pt in enumerate(rota_ordenada[:10], 1): # Mostra os 10 mais próximos
-            with st.expander(f"Paragem {i}: PT {pt['id']} (a {pt['dist']:.2f} km)"):
-                st.write(f"Este é o {i}º ponto mais próximo.")
-                url = f"https://www.google.com/maps/dir/?api=1&origin={minha_lat},{minha_lon}&destination={pt['lat']},{pt['lon']}&travelmode=driving"
-                st.link_button(f"Iniciar Navegação para PT {pt['id']}", url)
+            st.success(f"✅ Roteiro gerado para {len(pts_encontrados)} postos!")
+            
+            # Mostrar a rota no mapa (opcional)
+            st.map(pts_encontrados)
+
+            for i, pt in enumerate(rota_eficiente, 1):
+                with st.expander(f"📍 PARAGEM {i}: PT {pt['id']}"):
+                    st.write(f"**Localidade:** {pt['concelho']}")
+                    st.write(f"**Distância de onde estás:** {pt['dist']:.2f} km")
+                    
+                    # Link para o Google Maps
+                    url = f"https://www.google.com/maps/dir/?api=1&origin={m_lat},{m_lon}&destination={pt['lat']},{pt['lon']}&travelmode=driving"
+                    st.link_button(f"Abrir Navegação para Paragem {i}", url)
+                    
+                    # Atualiza a posição "m_lat" e "m_lon" para o próximo cálculo se quisesses rota encadeada
+                    # Mas para inspeção simples, a distância da origem atual costuma ser o melhor guia.
+        else:
+            st.warning("Nenhum desses códigos foi encontrado no ficheiro da Sertã.")
 
 except Exception as e:
-    st.error("Erro ao carregar ficheiro. Verifica se o nome no GitHub está correto.")
+    st.error(f"Erro: {e}")
+
