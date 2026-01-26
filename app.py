@@ -1,75 +1,64 @@
 import streamlit as st
-import json
-from math import radians, cos, sin, asin, sqrt
+from datetime import datetime, timedelta
 
-st.set_page_config(page_title="E-REDES Planeador", page_icon="⚡")
+st.set_page_config(page_title="Agenda de Campo", page_icon="📅")
 
-def calcular_distancia(lat1, lon1, lat2, lon2):
-    R = 6371
-    dLat, dLon = radians(lat2-lat1), radians(lon2-lon1)
-    a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLon/2)**2
-    return R * 2 * asin(sqrt(a))
+st.title("📅 Agenda de Trabalho com GPS")
 
-st.title("⚡ Planeador de Rota de Inspeção")
-st.markdown("Insira os códigos dos PTs para criar o roteiro mais eficiente.")
+# 1. Configuração da Jornada
+st.sidebar.header("⚙️ Configurações")
+hora_inicio = st.sidebar.time_input("Hora de Início", value=datetime.strptime("08:00", "%H:%M"))
+tempo_em_cada = st.sidebar.number_input("Tempo em cada local (min)", value=30)
+tempo_viagem_padrao = st.sidebar.number_input("Tempo médio de viagem (min)", value=15)
 
-try:
-    with open('postos-transformacao-distribuicao.geojson', 'r', encoding='utf-8') as f:
-        dados = json.load(f)
+# 2. Entrada de Dados (Onde planeias o teu dia)
+st.subheader("📝 Planear Dia")
+instrucoes = """Formato: Nome ou Código | Coordenadas ou Morada | Notas
+Exemplo:
+PT Sertã 01 | 39.8475,-8.1000 | Levar escada e verificar fusível
+Poste 44 | Rua da Igreja, Sertã | Pintar numeração
+"""
+entrada = st.text_area("Cria a tua lista (um por linha):", value="", height=200, placeholder=instrucoes)
 
-    # Localização de partida
-    st.sidebar.header("📍 Ponto de Partida")
-    m_lat = st.sidebar.number_input("Tua Latitude", value=39.8475, format="%.6f")
-    m_lon = st.sidebar.number_input("Tua Longitude", value=-8.1000, format="%.6f")
-
-    # CAIXA DE PESQUISA MÚLTIPLA
-    entrada = st.text_area("Cole aqui os códigos dos PTs (separados por vírgula, espaço ou linha):", 
-                           placeholder="Exemplo: 1824D2010700, 1824D2011100, 1824D2014600")
-
-    if entrada:
-        # Limpar a entrada para criar uma lista de códigos
-        lista_procurar = entrada.replace(',', ' ').split()
-        lista_procurar = [c.strip().upper() for c in lista_procurar]
-
-        pts_encontrados = []
-        for feature in dados['features']:
-            p = feature['properties']
-            g = feature['geometry']
-            cod_pt = str(p.get('cod_instalacao', '')).upper()
+if entrada:
+    trabalhos = entrada.strip().split('\n')
+    hora_atual = datetime.combine(datetime.today(), hora_inicio)
+    
+    st.divider()
+    st.subheader("🚀 Roteiro do Dia")
+    
+    for i, linha in enumerate(trabalhos):
+        if '|' in linha:
+            partes = linha.split('|')
+            nome = partes[0].strip()
+            local = partes[1].strip()
+            nota = partes[2].strip() if len(partes) > 2 else "Sem notas."
             
-            if cod_pt in lista_procurar:
-                lon, lat = g['coordinates']
-                dist = calcular_distancia(m_lat, m_lon, lat, lon)
-                pts_encontrados.append({
-                    'id': cod_pt,
-                    'dist': dist,
-                    'lat': lat, 'lon': lon,
-                    'concelho': p.get('con_name')
-                })
-
-        if pts_encontrados:
-            # ORDENAR: A mágica acontece aqui - organiza do mais próximo para o mais distante
-            rota_eficiente = sorted(pts_encontrados, key=lambda x: x['dist'])
-
-            st.success(f"✅ Roteiro gerado para {len(pts_encontrados)} postos!")
+            # Cálculos de tempo
+            chegada = hora_atual + timedelta(minutes=tempo_viagem_padrao if i > 0 else 0)
+            saida = chegada + timedelta(minutes=tempo_em_cada)
             
-            # Mostrar a rota no mapa (opcional)
-            st.map(pts_encontrados)
-
-            for i, pt in enumerate(rota_eficiente, 1):
-                with st.expander(f"📍 PARAGEM {i}: PT {pt['id']}"):
-                    st.write(f"**Localidade:** {pt['concelho']}")
-                    st.write(f"**Distância de onde estás:** {pt['dist']:.2f} km")
+            # Cartão de Trabalho
+            with st.container(border=True):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.markdown(f"### {i+1}. {nome}")
+                    st.caption(f"📍 {local}")
+                    st.info(f"🗒️ **Nota:** {nota}")
+                
+                with col2:
+                    st.write(f"⌚ **Chegada**\n{chegada.strftime('%H:%M')}")
+                    st.write(f"⌚ **Saída**\n{saida.strftime('%H:%M')}")
                     
-                    # Link para o Google Maps
-                    url = f"https://www.google.com/maps/dir/?api=1&origin={m_lat},{m_lon}&destination={pt['lat']},{pt['lon']}&travelmode=driving"
-                    st.link_button(f"Abrir Navegação para Paragem {i}", url)
-                    
-                    # Atualiza a posição "m_lat" e "m_lon" para o próximo cálculo se quisesses rota encadeada
-                    # Mas para inspeção simples, a distância da origem atual costuma ser o melhor guia.
-        else:
-            st.warning("Nenhum desses códigos foi encontrado no ficheiro da Sertã.")
+                    # Botão de GPS
+                    # Se for coordenada (tem virgula e números), funciona direto. 
+                    # Se for morada, o Google Maps também reconhece.
+                    url_maps = f"https://www.google.com/maps/search/?api=1&query={local.replace(' ', '+')}"
+                    st.link_button("📍 Ir agora", url_maps)
+            
+            hora_atual = saida
 
-except Exception as e:
-    st.error(f"Erro: {e}")
-
+    st.success(f"🏁 Hora prevista de fim de serviço: {hora_atual.strftime('%H:%M')}")
+else:
+    st.info("Escreve os teus trabalhos na caixa acima para gerares a agenda do dia.")
