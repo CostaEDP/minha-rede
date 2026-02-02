@@ -2,7 +2,7 @@ import streamlit as st
 import json
 from math import radians, cos, sin, asin, sqrt
 
-st.set_page_config(page_title="E-REDES Planeador GPS", page_icon="⚡")
+st.set_page_config(page_title="E-REDES Planeador GPS")
 
 def calcular_distancia(lat1, lon1, lat2, lon2):
     R = 6371
@@ -10,7 +10,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLon/2)**2
     return R * 2 * asin(sqrt(a))
 
-st.title("⚡ Planeador de Rota com Coordenadas")
+st.title(" Planeador Rota Sertâ")
 st.markdown("Insira os códigos para criar o roteiro e obter as coordenadas GPS.")
 
 try:
@@ -79,4 +79,5 @@ try:
 
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
+
 
