@@ -10,7 +10,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLon/2)**2
     return R * 2 * asin(sqrt(a))
 
-st.title("⚡ Planeador de Rota de Inspeção")
+st.title("Rota de Inspeção PTs")
 st.markdown("Insira os códigos dos PTs para criar o roteiro mais eficiente.")
 
 try:
@@ -72,3 +72,4 @@ try:
 
 except Exception as e:
     st.error(f"Erro: {e}")
+
