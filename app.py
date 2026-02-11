@@ -24,7 +24,7 @@ try:
     m_lon = st.sidebar.number_input("Tua Longitude Atual", value=-8.1000, format="%.6f")
 
     # CAIXA DE PESQUISA MÚLTIPLA
-    entrada = st.text_area("Cole aqui os códigos (PTs, Postes ou OCRs):", 
+    entrada = st.text_area("Colar aqui COD do PT"):", 
                            placeholder="Exemplo: 1824D2010700, 1824D2011100")
 
     if entrada:
@@ -79,6 +79,7 @@ try:
 
 except Exception as e:
     st.error(f"Erro ao carregar dados: {e}")
+
 
 
 
