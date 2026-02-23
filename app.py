@@ -24,7 +24,7 @@ st.markdown("Pesquisa em tempo real na base de dados nacional da E-REDES.")
 
 # Caixa de texto para os códigos
 entrada = st.text_area("Insira os códigos dos PTs (separados por vírgula ou espaço):", 
-                       placeholder="Exemplo: 1824D2010700, 1824D2011100")
+                       placeholder="Exemplo: 1401D3042500, 0509D2002800, 1213D3001100")
 
 if entrada:
     # Limpa a entrada e cria lista de códigos
@@ -74,4 +74,5 @@ if entrada:
         st.warning("Nenhum posto encontrado com esses códigos.")
 else:
     st.info("Aguardando introdução de códigos para gerar roteiro.")
+
 
