@@ -3,7 +3,7 @@ import pandas as pd
 import requests
 from math import radians, cos, sin, asin, sqrt
 
-st.set_page_config(page_title="E-REDES Portugal Pro", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="Localizador Postos de Transformação", layout="wide")
 
 def calcular_distancia(lat1, lon1, lat2, lon2):
     R = 6371
@@ -15,10 +15,8 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
 st.sidebar.title("Configurações Nacionais")
 m_lat = st.sidebar.number_input("Tua Latitude", value=39.5000, format="%.6f")
 m_lon = st.sidebar.number_input("Tua Longitude", value=-8.0000, format="%.6f")
-senha = st.sidebar.text_input("Senha de Acesso", type="password")
 
-if senha == "EREDES2026":
-    st.title("🇵🇹 Localizador Nacional E-REDES")
+    st.title("Localizador Postos de Transformação")
     st.info("A pesquisar em tempo real na base de dados oficial de Portugal.")
 
     entrada = st.text_area("Insere os códigos dos PTs (ex: 1824D2010700):")
@@ -63,6 +61,7 @@ if senha == "EREDES2026":
 else:
     if senha: st.error("Senha incorreta")
     st.info("Introduza a senha para aceder ao mapa nacional.")
+
 
 
 
