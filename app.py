@@ -1,8 +1,9 @@
 import streamlit as st
-import json
+import pandas as pd
+import requests
 from math import radians, cos, sin, asin, sqrt
 
-st.set_page_config(page_title="E-REDES Planeador GPS")
+st.set_page_config(page_title="E-REDES Portugal Pro", page_icon="⚡", layout="wide")
 
 def calcular_distancia(lat1, lon1, lat2, lon2):
     R = 6371
@@ -10,75 +11,58 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = sin(dLat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dLon/2)**2
     return R * 2 * asin(sqrt(a))
 
-st.title(" Planeador Rota Sertâ")
-st.markdown("Insira os códigos para criar o roteiro e obter as coordenadas GPS.")
+# --- CONFIGURAÇÃO ---
+st.sidebar.title("Configurações Nacionais")
+m_lat = st.sidebar.number_input("Tua Latitude", value=39.5000, format="%.6f")
+m_lon = st.sidebar.number_input("Tua Longitude", value=-8.0000, format="%.6f")
+senha = st.sidebar.text_input("Senha de Acesso", type="password")
 
-try:
-    # Carregar o ficheiro (garante que o nome coincide com o que tens no GitHub)
-    with open('postos-transformacao-distribuicao.geojson', 'r', encoding='utf-8') as f:
-        dados = json.load(f)
+if senha == "EREDES2026":
+    st.title("🇵🇹 Localizador Nacional E-REDES")
+    st.info("A pesquisar em tempo real na base de dados oficial de Portugal.")
 
-    # Localização de partida
-    st.sidebar.header("📍 Ponto de Partida")
-    m_lat = st.sidebar.number_input("Tua Latitude Atual", value=39.8475, format="%.6f")
-    m_lon = st.sidebar.number_input("Tua Longitude Atual", value=-8.1000, format="%.6f")
-
-    # CAIXA DE PESQUISA MÚLTIPLA
-    entrada = st.text_area("Colar aqui COD do PT"):", 
-                           placeholder="Exemplo: 1824D2010700, 1824D2011100")
+    entrada = st.text_area("Insere os códigos dos PTs (ex: 1824D2010700):")
 
     if entrada:
-        # Limpar a entrada para criar uma lista de códigos
-        lista_procurar = entrada.replace(',', ' ').split()
-        lista_procurar = [c.strip().upper() for c in lista_procurar]
+        cods = [c.strip().upper() for c in entrada.replace(',', ' ').split()]
+        
+        encontrados = []
+        
+        for c in cods:
+            # PESQUISA DIRETA NA API DA E-REDES
+            url = f"https://e-redes.opendatasoft.com/api/records/1.0/search/?dataset=postos-transformacao-distribuicao&q={c}"
+            try:
+                response = requests.get(url).json()
+                if response['records']:
+                    for rec in response['records']:
+                        fields = rec['fields']
+                        geo = rec['geometry']['coordinates']
+                        lat, lon = geo[1], geo[0]
+                        dist = calcular_distancia(m_lat, m_lon, lat, lon)
+                        
+                        encontrados.append({
+                            'id': fields.get('cod_instalacao'),
+                            'concelho': fields.get('con_name'),
+                            'dist': dist, 'lat': lat, 'lon': lon
+                        })
+            except:
+                st.error(f"Erro ao ligar à base de dados para o PT {c}")
 
-        pts_encontrados = []
-        for feature in dados['features']:
-            p = feature['properties']
-            g = feature['geometry']
-            
-            # Tenta encontrar o código em várias colunas possíveis (PT, Apoio ou OCR)
-            cod_id = str(p.get('cod_instalacao') or p.get('cod_apoio') or p.get('cod_equipamento') or '').upper()
-            
-            if cod_id in lista_procurar:
-                lon, lat = g['coordinates']
-                dist = calcular_distancia(m_lat, m_lon, lat, lon)
-                pts_encontrados.append({
-                    'id': cod_id,
-                    'dist': dist,
-                    'lat': lat, 
-                    'lon': lon,
-                    'concelho': p.get('con_name', 'N/A')
-                })
+        if encontrados:
+            rota = sorted(encontrados, key=lambda x: x['dist'])
+            st.map(pd.DataFrame(rota))
 
-        if pts_encontrados:
-            # Ordenar do mais próximo para o mais distante
-            rota_eficiente = sorted(pts_encontrados, key=lambda x: x['dist'])
-
-            st.success(f"✅ Encontrados {len(pts_encontrados)} pontos. Roteiro gerado!")
-            
-            # Mapa visual
-            st.map(pts_encontrados)
-
-            st.subheader("📋 Ordem de Visita e Dados GPS")
-            for i, pt in enumerate(rota_eficiente, 1):
-                with st.expander(f"📍 PARAGEM {i}: Código {pt['id']}"):
-                    st.write(f"**Distância:** {pt['dist']:.2f} km")
-                    
-                    # --- AQUI ESTÃO AS COORDENADAS PARA COPIAR ---
-                    st.code(f"{pt['lat']}, {pt['lon']}", language=None)
-                    st.caption("Podes copiar a coordenada acima ↑")
-                    
-                    st.write(f"**Localidade:** {pt['concelho']}")
-                    
-                    # Botão de Navegação
-                    url = f"https://www.google.com/maps/search/?api=1&query={pt['lat']},{pt['lon']}"
-                    st.link_button(f"Abrir GPS para {pt['id']}", url)
+            for i, pt in enumerate(rota, 1):
+                with st.expander(f"📍 {i}: {pt['id']} - {pt['concelho']} ({pt['dist']:.2f} km)"):
+                    st.code(f"{pt['lat']}, {pt['lon']}")
+                    col1, col2 = st.columns(2)
+                    col1.link_button("📍 GPS", f"https://www.google.com/maps/search/?api=1&query={pt['lat']},{pt['lon']}")
+                    col2.link_button("🔍 GeoCloud", f"https://geocloud.e-redes.pt/geoviewer/index.html?center={pt['lat']},{pt['lon']}&level=18")
         else:
-            st.warning("Nenhum código foi encontrado. Verifica se os códigos estão corretos ou se o ficheiro GeoJSON está atualizado.")
-
-except Exception as e:
-    st.error(f"Erro ao carregar dados: {e}")
+            st.warning("Nenhum código encontrado em Portugal.")
+else:
+    if senha: st.error("Senha incorreta")
+    st.info("Introduza a senha para aceder ao mapa nacional.")
 
 
 
