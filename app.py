@@ -19,7 +19,7 @@ m_lat = st.sidebar.number_input("Minha Latitude", value=39.5000, format="%.6f")
 m_lon = st.sidebar.number_input("Minha Longitude", value=-8.0000, format="%.6f")
 
 # --- CORPO DA APP ---
-st.title("📍 Localizador Postos de Transformação")
+st.title(" Localizador Postos de Transformação")
 st.markdown("Pesquisa em tempo real na base de dados nacional da E-REDES.")
 
 # Caixa de texto para os códigos
@@ -74,3 +74,4 @@ if entrada:
         st.warning("Nenhum posto encontrado com esses códigos.")
 else:
     st.info("Aguardando introdução de códigos para gerar roteiro.")
+
